@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClickUp Task Tracker</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+
+<body>
+  <div class="popup-container">
+    <!-- Header -->
+    <header class="popup-header">
+      <div class="logo">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+          <path
+            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+        </svg>
+        <span>ClickUp Task Tracker</span>
+      </div>
+    </header>
+
+    <!-- Step 1: OAuth Setup (shown when not configured) -->
+    <section id="setup-section" class="section hidden">
+      <h2>🔐 Configurar OAuth</h2>
+      <p class="description">Para mayor seguridad, cada usuario debe crear su propia app OAuth en ClickUp.</p>
+
+      <div class="setup-steps">
+        <div class="step">
+          <span class="step-number">1</span>
+          <div class="step-content">
+            <strong>Crear app en ClickUp</strong>
+            <a href="https://app.clickup.com/settings/integrations" target="_blank" class="help-link">
+              Abrir configuración de ClickUp →
+            </a>
+          </div>
+        </div>
+
+        <div class="step">
+          <span class="step-number">2</span>
+          <div class="step-content">
+            <strong>Usar esta Redirect URL:</strong>
+            <div class="redirect-url-container">
+              <code id="redirect-url" class="redirect-url">Cargando...</code>
+              <button id="copy-url-btn" class="copy-btn" title="Copiar">📋</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <span class="step-number">3</span>
+          <div class="step-content">
+            <strong>Introduce tus credenciales:</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="client-id">Client ID</label>
+        <input type="text" id="client-id" placeholder="Ej: ABC123DEF456...">
+      </div>
+
+      <div class="form-group">
+        <label for="client-secret">Client Secret</label>
+        <input type="password" id="client-secret" placeholder="Ej: XYZ789...">
+        <p class="hint">🔒 Se guarda localmente, nunca se comparte</p>
+      </div>
+
+      <button id="save-oauth-btn" class="primary-btn">Guardar y Continuar</button>
+      <div id="setup-error" class="error-message"></div>
+    </section>
+
+    <!-- Step 2: Login Section (shown when configured but not authenticated) -->
+    <section id="login-section" class="section hidden">
+      <h2>Conectar a ClickUp</h2>
+      <p class="description">Inicia sesión de forma segura con tu cuenta de ClickUp.</p>
+
+      <button id="connect-btn" class="primary-btn oauth-btn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path
+            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+        </svg>
+        Iniciar sesión con ClickUp
+      </button>
+
+      <div id="login-error" class="error-message"></div>
+
+      <p class="security-note">
+        🔒 OAuth 2.0 - Tu contraseña nunca se almacena
+      </p>
+
+      <button id="reconfigure-btn" class="text-btn">⚙️ Reconfigurar OAuth</button>
+    </section>
+
+    <!-- Step 3: Settings Section (shown when authenticated) -->
+    <section id="settings-section" class="section hidden">
+      <!-- User Info -->
+      <div class="user-info">
+        <div class="user-avatar" id="user-avatar">?</div>
+        <div class="user-details">
+          <span class="user-name" id="user-name">Cargando...</span>
+          <span class="user-email" id="user-email"></span>
+        </div>
+        <button id="logout-btn" class="icon-btn" title="Desconectar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Default List Configuration -->
+      <div class="config-section">
+        <h3>Lista por defecto</h3>
+        <p class="description">Selecciona dónde se crearán las nuevas tareas.</p>
+
+        <div class="form-group">
+          <label for="team-select">Team</label>
+          <select id="team-select">
+            <option value="">Seleccionar team...</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="space-select">Space</label>
+          <select id="space-select" disabled>
+            <option value="">Seleccionar space...</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="folder-select">Folder (opcional)</label>
+          <select id="folder-select" disabled>
+            <option value="">Sin folder (listas raíz)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="list-select">List</label>
+          <select id="list-select" disabled>
+            <option value="">Seleccionar list...</option>
+          </select>
+        </div>
+      </div>
+
+      <button id="save-btn" class="primary-btn">Guardar Configuración</button>
+      <div id="save-message" class="success-message"></div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="popup-footer">
+      <span>v1.0.0</span>
+      <span>🔒 ISO 27001</span>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+
+</html>

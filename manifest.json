@@ -1,0 +1,55 @@
+{
+    "manifest_version": 2,
+    "name": "Gmail to ClickUp Task Tracker",
+    "version": "1.0.0",
+    "description": "Create ClickUp tasks from Gmail emails - Secure OAuth authentication",
+    "permissions": [
+        "storage",
+        "activeTab",
+        "identity",
+        "*://mail.google.com/*",
+        "*://api.clickup.com/*",
+        "*://app.clickup.com/*"
+    ],
+    "background": {
+        "scripts": [
+            "api/clickup.js",
+            "background/background.js"
+        ],
+        "persistent": false
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "*://mail.google.com/*"
+            ],
+            "js": [
+                "lib/chrome-polyfill.js",
+                "content/modal.js",
+                "content/gmail.js"
+            ],
+            "css": [
+                "content/gmail.css",
+                "content/modal.css"
+            ],
+            "run_at": "document_end"
+        }
+    ],
+    "browser_action": {
+        "default_popup": "popup/popup.html",
+        "default_icon": {
+            "16": "assets/icons/icon-16.png",
+            "48": "assets/icons/icon-48.png",
+            "128": "assets/icons/icon-128.png"
+        }
+    },
+    "web_accessible_resources": [
+        "assets/*",
+        "popup/*"
+    ],
+    "icons": {
+        "16": "assets/icons/icon-16.png",
+        "48": "assets/icons/icon-48.png",
+        "128": "assets/icons/icon-128.png"
+    }
+}
