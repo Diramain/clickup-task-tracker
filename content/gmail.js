@@ -141,7 +141,10 @@ function refreshAllBars() {
  */
 function startObserver() {
     const observer = new MutationObserver(() => {
-        requestAnimationFrame(scanEmails);
+        requestAnimationFrame(() => {
+            scanEmails();
+            scanInbox();
+        });
     });
 
     observer.observe(document.body, {
@@ -151,10 +154,11 @@ function startObserver() {
 
     // Initial scan
     scanEmails();
+    scanInbox();
 }
 
 /**
- * Scan for email messages
+ * Scan for email messages (detail view)
  */
 function scanEmails() {
     // Find email body containers
@@ -167,6 +171,73 @@ function scanEmails() {
 
         const threadId = getThreadId();
         injectClickUpBar(messageContainer, body, threadId);
+    });
+}
+
+/**
+ * Scan inbox list and add task ID badges to subjects
+ */
+const processedInboxRows = new WeakSet();
+
+function scanInbox() {
+    // Gmail inbox rows - find email rows in list view
+    const inboxRows = document.querySelectorAll('tr.zA, div[role="row"]');
+
+    inboxRows.forEach(row => {
+        if (processedInboxRows.has(row)) return;
+        processedInboxRows.add(row);
+
+        // Find the subject element - Gmail uses different classes
+        const subjectEl = row.querySelector('.bog, .bqe, span[data-thread-id]') ||
+            row.querySelector('span.y2');
+
+        if (!subjectEl) return;
+
+        // Try to get thread ID from the row
+        const threadLink = row.querySelector('a[data-thread-perm-id]');
+        const dataThreadId = row.getAttribute('data-thread-id') ||
+            threadLink?.getAttribute('data-thread-perm-id');
+
+        // If we can't get thread ID, try matching by subject
+        const subjectText = subjectEl.textContent.trim();
+
+        // Check if this email has linked tasks
+        let matchedThreadId = null;
+        let matchedTasks = [];
+
+        if (dataThreadId && linkedTasks[dataThreadId]) {
+            matchedThreadId = dataThreadId;
+            matchedTasks = linkedTasks[dataThreadId];
+        } else {
+            // Try to match by iterating through all linked tasks
+            for (const [threadId, tasks] of Object.entries(linkedTasks)) {
+                if (tasks && tasks.length > 0) {
+                    // Check if any task name matches the subject
+                    if (tasks.some(t => t.name && subjectText.includes(t.name.substring(0, 20)))) {
+                        matchedThreadId = threadId;
+                        matchedTasks = tasks;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (matchedTasks.length > 0 && !subjectEl.querySelector('.cu-inbox-task-badge')) {
+            // Create task badge
+            const badge = document.createElement('span');
+            badge.className = 'cu-inbox-task-badge';
+            badge.title = matchedTasks.map(t => t.name).join(', ');
+
+            // Show first task ID (or count if multiple)
+            if (matchedTasks.length === 1) {
+                badge.innerHTML = `<a href="${matchedTasks[0].url}" target="_blank" class="cu-inbox-task-link">#${matchedTasks[0].id}</a>`;
+            } else {
+                badge.innerHTML = `<span class="cu-inbox-task-count">${matchedTasks.length} tasks</span>`;
+            }
+
+            // Insert before subject text
+            subjectEl.insertBefore(badge, subjectEl.firstChild);
+        }
     });
 }
 
