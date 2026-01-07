@@ -116,12 +116,9 @@ clickup-task-tracker/
 
 ## 🙏 Credits
 
-- **Technical Inspiration**: [InboxSDK](https://www.inboxsdk.com/) by Streak
-  - Gmail view detection architecture inspired by InboxSDK techniques
-  - InboxSDK is open source under MIT License
-  - https://github.com/inboxSDK/inboxsdk
-
-- **API**: [ClickUp API v2](https://clickup.com/api)
+- **Architectural Inspiration**: Gmail view detection patterns inspired by general web extension development practices
+- **API**: [ClickUp API v2](https://clickup.com/api) - Official ClickUp REST API
+- **Built with**: Vanilla JavaScript, no external dependencies
 
 ## 📄 License
 
