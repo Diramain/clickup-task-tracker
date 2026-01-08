@@ -27,8 +27,10 @@ class ClickUpAPI {
         });
 
         if (!response.ok) {
-            const error = await response.json().catch(() => ({}));
-            throw new Error(error.err || `API Error: ${response.status}`);
+            const errorData = await response.json().catch(() => ({}));
+            const error = new Error(errorData.err || `API Error: ${response.status}`);
+            error.status = response.status;
+            throw error;
         }
 
         return response.json();
@@ -105,6 +107,17 @@ class ClickUpAPI {
     }
 
     /**
+     * Search tasks across the team by query string
+     * GET /team/{team_id}/task?include_closed=true
+     */
+    async searchTasks(teamId, query) {
+        // La API de ClickUp no tiene búsqueda por texto directa,
+        // pero podemos obtener todas las tareas abiertas y filtrar
+        // Usamos el endpoint de tareas filtradas
+        return this.request(`/team/${teamId}/task?include_closed=true&subtasks=true`);
+    }
+
+    /**
      * Create a new task
      * POST /list/{list_id}/task
      */
@@ -138,6 +151,56 @@ class ClickUpAPI {
         }
 
         return response.json();
+    }
+    /**
+     * Upload email attachment to a task
+     * Uses standard API v2 endpoint
+     * 
+     * POST /task/{task_id}/attachment
+     */
+    async uploadEmailAttachment(taskId, emailHtml, emailMetadata) {
+        const formData = new FormData();
+
+        // Create HTML blob for the email content
+        const htmlBlob = new Blob([emailHtml], { type: 'text/html' });
+
+        // Clean filename from subject
+        const safeSubject = (emailMetadata.subject || 'Email')
+            .replace(/[<>:"/\\|?*]/g, '')
+            .substring(0, 100);
+
+        // Append the HTML file
+        formData.append('attachment', htmlBlob, `${safeSubject}.html`);
+
+        const url = `${CLICKUP_API_BASE}/task/${taskId}/attachment`;
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Authorization': this.token
+            },
+            body: formData
+        });
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            console.error('[ClickUp] Email attachment error:', error);
+            throw new Error(error.err || `Upload Email Error: ${response.status}`);
+        }
+
+        return response.json();
+    }
+
+    /**
+     * Add a comment to a task
+     * POST /task/{task_id}/comment
+     */
+    async addComment(taskId, commentText) {
+        return this.request(`/task/${taskId}/comment`, {
+            method: 'POST',
+            body: JSON.stringify({
+                comment_text: commentText
+            })
+        });
     }
 
     /**

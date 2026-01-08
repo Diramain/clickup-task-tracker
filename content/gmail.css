@@ -18,13 +18,13 @@
     gap: 10px;
 }
 
-/* Add to ClickUp Button */
+/* Add to ClickUp Button - ClickUp Official Gradient */
 .cu-add-btn {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     padding: 8px 14px;
-    background: linear-gradient(135deg, #7B68EE 0%, #6C5CE7 100%);
+    background: linear-gradient(135deg, #49CCF9 0%, #8930FD 50%, #FF02F0 100%);
     color: white;
     border: none;
     border-radius: 6px;
@@ -33,12 +33,12 @@
     font-family: 'Google Sans', Roboto, sans-serif;
     cursor: pointer;
     transition: all 0.2s ease;
-    box-shadow: 0 2px 4px rgba(108, 92, 231, 0.2);
+    box-shadow: 0 2px 4px rgba(137, 48, 253, 0.3);
 }
 
 .cu-add-btn:hover {
-    background: linear-gradient(135deg, #6C5CE7 0%, #5B4BD5 100%);
-    box-shadow: 0 4px 8px rgba(108, 92, 231, 0.3);
+    background: linear-gradient(135deg, #3BB8E5 0%, #7520ED 50%, #E600D6 100%);
+    box-shadow: 0 4px 8px rgba(137, 48, 253, 0.4);
     transform: translateY(-1px);
 }
 
@@ -159,20 +159,22 @@
 
 .cu-inbox-task-link {
     display: inline-block;
-    padding: 2px 6px;
-    background: linear-gradient(135deg, #7B68EE, #6C5CE7);
+    padding: 2px 8px;
+    background: linear-gradient(135deg, #4ebff9 0%, #7b52fc 100%);
     color: white !important;
     font-size: 10px;
-    font-weight: 600;
-    font-family: 'Roboto Mono', monospace;
+    font-weight: 700;
+    font-family: 'Google Sans', Roboto, sans-serif;
     text-decoration: none !important;
     border-radius: 4px;
     transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(123, 82, 252, 0.3);
 }
 
 .cu-inbox-task-link:hover {
-    background: linear-gradient(135deg, #6C5CE7, #5B4BD5);
-    box-shadow: 0 2px 6px rgba(108, 92, 231, 0.4);
+    background: linear-gradient(135deg, #3ab0f0 0%, #6a3eeb 100%);
+    box-shadow: 0 2px 6px rgba(123, 82, 252, 0.5);
+    transform: translateY(-1px);
 }
 
 .cu-inbox-task-count {
@@ -184,4 +186,57 @@
     font-weight: 600;
     border-radius: 4px;
     border: 1px solid #d4cfff;
+}
+
+/* InboxSDK Sidebar Panel */
+.cu-sidebar-panel {
+    padding: 12px;
+    font-family: 'Google Sans', Roboto, sans-serif;
+}
+
+.cu-sidebar-content {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.cu-linked-tasks-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.cu-task-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #f8f7ff;
+    border: 1px solid #e0dcf5;
+    border-radius: 6px;
+    color: #5f4ce4;
+    text-decoration: none;
+    font-size: 13px;
+    transition: all 0.2s ease;
+}
+
+.cu-task-item:hover {
+    background: #f0eeff;
+    border-color: #7B68EE;
+}
+
+.cu-add-task-btn {
+    padding: 8px 12px;
+    background: linear-gradient(135deg, #7B68EE 0%, #6C5CE7 100%);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.cu-add-task-btn:hover {
+    background: linear-gradient(135deg, #6C5CE7 0%, #5B4BD5 100%);
 }

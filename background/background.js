@@ -79,10 +79,12 @@ async function saveEmailTaskMapping(threadId, task) {
 
 /**
  * Find tasks linked to email threads (from local storage)
+ * If not found locally, search in ClickUp
  */
 async function findLinkedTasks(threadIds) {
     const mappings = await getEmailTaskMappings();
     const results = [];
+    const notFoundLocally = [];
 
     for (const threadId of threadIds) {
         if (mappings[threadId] && mappings[threadId].length > 0) {
@@ -90,10 +92,69 @@ async function findLinkedTasks(threadIds) {
                 threadId,
                 tasks: mappings[threadId]
             });
+        } else {
+            notFoundLocally.push(threadId);
+        }
+    }
+
+    // Para los que no encontramos localmente, buscar en ClickUp
+    if (notFoundLocally.length > 0 && clickupAPI && cachedTeams) {
+        for (const threadId of notFoundLocally) {
+            try {
+                const gmailUrl = `mail.google.com/mail/u/0/#inbox/${threadId}`;
+                const foundTasks = await searchTasksByGmailUrl(gmailUrl, threadId);
+                if (foundTasks.length > 0) {
+                    results.push({
+                        threadId,
+                        tasks: foundTasks
+                    });
+                    // Guardar en cache local para futuras consultas
+                    for (const task of foundTasks) {
+                        await saveEmailTaskMapping(threadId, task);
+                    }
+                }
+            } catch (err) {
+                console.warn('[ClickUp] Error searching for task by Gmail URL:', err);
+            }
         }
     }
 
     return results;
+}
+
+/**
+ * Search tasks in ClickUp that contain a Gmail Thread ID
+ * Searches in task name, description, and comments
+ */
+async function searchTasksByGmailUrl(gmailUrl, threadId) {
+    if (!clickupAPI || !cachedTeams) return [];
+
+    const team = cachedTeams.teams[0];
+    if (!team) return [];
+
+    const foundTasks = [];
+
+    try {
+        // Buscar en ClickUp por el thread ID
+        // La API de búsqueda busca en nombre, descripción y comentarios
+        const searchResults = await clickupAPI.searchTasks(team.id, threadId);
+
+        if (searchResults && searchResults.tasks) {
+            for (const task of searchResults.tasks) {
+                // La tarea fue encontrada por la búsqueda, agregar si no está duplicada
+                foundTasks.push({
+                    id: task.id,
+                    name: task.name,
+                    url: task.url
+                });
+                console.log('[ClickUp] Found linked task via search:', task.id, task.name);
+            }
+        }
+    } catch (err) {
+        console.warn('[ClickUp] Search failed:', err);
+    }
+
+    return foundTasks;
 }
 
 // ===== OAUTH AUTHENTICATION =====
@@ -213,6 +274,10 @@ async function createTaskFromEmail(emailData) {
     const { defaultList } = await browser.storage.local.get('defaultList');
     if (!defaultList) throw new Error('No default list configured');
 
+    // Construir la URL de Gmail para poder buscar después
+    const gmailUrl = `https://mail.google.com/mail/u/0/#inbox/${emailData.threadId}`;
+
+    // Descripción sin el link de Gmail (el link va en comentario)
     const taskData = {
         name: emailData.subject || 'Email Task',
         description: `📧 **Email from:** ${emailData.from}\n\n${emailData.description || ''}`,
@@ -231,22 +296,26 @@ async function createTaskFromEmail(emailData) {
         url: task.url
     });
 
-    // Upload email as attachment if HTML provided
+    // Agregar comentario con link a Gmail (más visible y fácil de buscar)
+    try {
+        const commentText = `📧 **Email vinculado:**\n🔗 [Ver email original en Gmail](${gmailUrl})\n\n_Thread ID: ${emailData.threadId}_`;
+        await clickupAPI.addComment(task.id, commentText);
+        console.log('[ClickUp] Gmail link added as comment');
+    } catch (error) {
+        console.error('Failed to add Gmail link comment:', error);
+    }
+
+    // Upload email as attachment
     if (emailData.html) {
         try {
-            const blob = new Blob([`
-<!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"><title>${emailData.subject}</title></head>
-<body>
-  <p><strong>From:</strong> ${emailData.from}</p>
-  <p><strong>Subject:</strong> ${emailData.subject}</p>
-  <hr>
-  ${emailData.html}
-</body>
-</html>
-      `], { type: 'text/html' });
-            await clickupAPI.uploadAttachment(task.id, blob, `email-${Date.now()}.html`);
+            await clickupAPI.uploadEmailAttachment(task.id, emailData.html, {
+                threadId: emailData.threadId,
+                messageId: emailData.messageId || emailData.threadId,
+                subject: emailData.subject,
+                from: emailData.from,
+                attachments: []
+            });
+            console.log('[ClickUp] Email attached');
         } catch (error) {
             console.error('Failed to upload email attachment:', error);
         }
@@ -315,14 +384,34 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
             case 'validateTask':
                 // Check if a task exists (not deleted)
-                if (!clickupAPI) return { exists: false };
+                // IMPORTANT: If API is unavailable, assume task exists to prevent accidental deletion
+                if (!clickupAPI) {
+                    console.log('[ClickUp] API not ready, skipping validation');
+                    return { exists: true, skipped: true };
+                }
                 try {
                     const task = await clickupAPI.getTask(message.taskId);
+
+                    // Check if task is archived (in trash) or deleted
+                    if (task.archived) {
+                        return { exists: false, reason: 'archived', taskStatus: task.status };
+                    }
+
                     // Task exists if we get a valid response
-                    return { exists: !!(task && task.id) };
+                    return { exists: !!(task && task.id), reason: 'exists', taskStatus: task.status };
                 } catch (error) {
-                    // 404 or any error means task doesn't exist
-                    return { exists: false };
+                    const status = error.status || 0;
+
+                    // Only mark as deleted if it's a 404 (Not Found) or 403 (Access Denied/Deleted)
+                    // "This task is unavailable" can be a 403 if user lost access
+                    if (status === 404 || status === 403 || (error.message && error.message.includes('404'))) {
+                        console.log('[ClickUp] Task not found or access denied:', message.taskId, status);
+                        return { exists: false, reason: 'api_error', errorStatus: status };
+                    }
+
+                    // For other errors (network, auth, etc), assume task exists to prevent data loss
+                    console.log('[ClickUp] Validation error, keeping task:', error.message);
+                    return { exists: true, error: error.message, errorStatus: status };
                 }
 
             case 'searchTasks':
@@ -514,19 +603,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
                 return { success: true };
 
-            case 'searchTasks':
-                if (!clickupAPI) return { tasks: [] };
-                // Search tasks in a list
-                try {
-                    const tasks = await clickupAPI.getTasks(message.listId);
-                    const filtered = tasks.tasks.filter(t =>
-                        t.name.toLowerCase().includes(message.query.toLowerCase()) ||
-                        t.id.includes(message.query)
-                    );
-                    return { tasks: filtered.slice(0, 10) };
-                } catch (e) {
-                    return { tasks: [] };
-                }
+            // NOTE: case 'searchTasks' is handled above at line 348 with full functionality
 
             default:
                 return { error: 'Unknown action' };

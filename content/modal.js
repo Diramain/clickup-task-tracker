@@ -90,20 +90,44 @@ class TaskModal {
               <div class="cu-editor-container">
                 <div class="cu-editor-tabs">
                   <button type="button" class="cu-editor-tab active" data-view="visual">Visual</button>
-                  <button type="button" class="cu-editor-tab" data-view="source">Source</button>
+                  <button type="button" class="cu-editor-tab" data-view="source">Markdown</button>
                 </div>
                 <div class="cu-editor-toolbar">
-                  <button type="button" data-cmd="bold" title="Bold"><b>B</b></button>
-                  <button type="button" data-cmd="italic" title="Italic"><i>I</i></button>
-                  <button type="button" data-cmd="strikeThrough" title="Strike"><s>S</s></button>
+                  <button type="button" data-cmd="bold" title="Negrita (Ctrl+B)"><b>B</b></button>
+                  <button type="button" data-cmd="italic" title="Cursiva (Ctrl+I)"><i>I</i></button>
+                  <button type="button" data-cmd="strikeThrough" title="Tachado (Ctrl+S)"><s>S</s></button>
                   <span class="cu-toolbar-sep"></span>
-                  <button type="button" data-cmd="insertUnorderedList" title="List">List</button>
-                  <button type="button" data-cmd="createLink" title="Link">Link</button>
+                  
+                  <!-- Headings Dropdown -->
+                  <div class="cu-toolbar-dropdown">
+                    <button type="button" class="cu-dropdown-trigger" title="Encabezados">H▾</button>
+                    <div class="cu-dropdown-menu">
+                      <button type="button" data-block="h1">Título 1</button>
+                      <button type="button" data-block="h2">Título 2</button>
+                      <button type="button" data-block="h3">Título 3</button>
+                      <button type="button" data-block="h4">Título 4</button>
+                      <button type="button" data-block="p">Normal</button>
+                    </div>
+                  </div>
+                  <span class="cu-toolbar-sep"></span>
+                  
+                  <!-- Lists -->
+                  <button type="button" data-cmd="insertUnorderedList" title="Lista con viñetas">• Lista</button>
+                  <button type="button" data-cmd="insertOrderedList" title="Lista numerada">1. Lista</button>
+                  <span class="cu-toolbar-sep"></span>
+                  
+                  <!-- Code & Quote -->
+                  <button type="button" data-insert="code" title="Código">&lt;/&gt;</button>
+                  <button type="button" data-insert="quote" title="Cita">❝</button>
+                  <span class="cu-toolbar-sep"></span>
+                  
+                  <!-- Link -->
+                  <button type="button" data-cmd="createLink" title="Hipervínculo (Ctrl+K)">🔗</button>
                 </div>
                 <div id="cu-editor-visual" class="cu-editor-visual" contenteditable="true" 
-                     placeholder="Description (paste with formatting)..."></div>
+                     placeholder="Escribe o pega contenido..."></div>
                 <textarea id="cu-editor-source" class="cu-editor-source hidden" 
-                          placeholder="Raw markdown (e.g., **bold**, _italic_)..."></textarea>
+                          placeholder="Markdown: **negrita**, _cursiva_, - lista, 'código'"></textarea>
               </div>
             </div>
             
@@ -254,10 +278,34 @@ class TaskModal {
         assigneeInput.addEventListener('input', (e) => this.searchAssignees(e.target.value));
         assigneeInput.addEventListener('focus', () => this.showAssigneeDropdown());
 
-        // Editor toolbar (execCommand for WYSIWYG)
-        this.modal.querySelectorAll('.cu-editor-toolbar button').forEach(btn => {
+        // Editor toolbar - handle different button types
+        this.modal.querySelectorAll('.cu-editor-toolbar button[data-cmd]').forEach(btn => {
             btn.addEventListener('click', () => this.execEditorCommand(btn.dataset.cmd));
         });
+
+        // Block format buttons (headings)
+        this.modal.querySelectorAll('.cu-editor-toolbar button[data-block]').forEach(btn => {
+            btn.addEventListener('click', () => this.formatBlock(btn.dataset.block));
+        });
+
+        // Insert buttons (code, quote, checklist)
+        this.modal.querySelectorAll('.cu-editor-toolbar button[data-insert]').forEach(btn => {
+            btn.addEventListener('click', () => this.insertElement(btn.dataset.insert));
+        });
+
+        // Dropdown toggle for headings
+        const dropdown = this.modal.querySelector('.cu-toolbar-dropdown');
+        if (dropdown) {
+            const trigger = dropdown.querySelector('.cu-dropdown-trigger');
+            trigger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                dropdown.classList.toggle('open');
+            });
+            // Close dropdown when clicking inside menu
+            dropdown.querySelectorAll('.cu-dropdown-menu button').forEach(btn => {
+                btn.addEventListener('click', () => dropdown.classList.remove('open'));
+            });
+        }
 
         // Editor tabs
         this.modal.querySelectorAll('.cu-editor-tab').forEach(tab => {
@@ -266,6 +314,30 @@ class TaskModal {
 
         // Smart paste in visual editor
         this.modal.querySelector('#cu-editor-visual').addEventListener('paste', (e) => this.handleVisualPaste(e));
+
+        // Keyboard shortcuts for editor (Ctrl+B, Ctrl+I, etc.)
+        this.modal.querySelector('#cu-editor-visual').addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                switch (e.key.toLowerCase()) {
+                    case 'b':
+                        e.preventDefault();
+                        this.execEditorCommand('bold');
+                        break;
+                    case 'i':
+                        e.preventDefault();
+                        this.execEditorCommand('italic');
+                        break;
+                    case 's':
+                        e.preventDefault();
+                        this.execEditorCommand('strikeThrough');
+                        break;
+                    case 'k':
+                        e.preventDefault();
+                        this.execEditorCommand('createLink');
+                        break;
+                }
+            }
+        });
 
         // Submit
         this.modal.querySelector('.cu-btn-submit').addEventListener('click', () => this.submit());
@@ -281,16 +353,21 @@ class TaskModal {
         // Clear selected task
         this.modal.querySelector('.cu-selected-task-clear').addEventListener('click', () => this.clearSelectedTask());
 
-        // Close dropdowns
+        // Close dropdowns - with null check to prevent TypeError when modal is closed
         document.addEventListener('click', (e) => {
+            if (!this.modal) return; // Modal was closed, skip
+
             if (!e.target.closest('.cu-location-search')) {
-                this.modal.querySelector('.cu-location-dropdown').classList.add('hidden');
+                const dropdown = this.modal.querySelector('.cu-location-dropdown');
+                if (dropdown) dropdown.classList.add('hidden');
             }
             if (!e.target.closest('.cu-assignee-container')) {
-                this.modal.querySelector('.cu-assignee-dropdown').classList.add('hidden');
+                const dropdown = this.modal.querySelector('.cu-assignee-dropdown');
+                if (dropdown) dropdown.classList.add('hidden');
             }
             if (!e.target.closest('.cu-task-search-container')) {
-                this.modal.querySelector('.cu-task-search-results').classList.add('hidden');
+                const results = this.modal.querySelector('.cu-task-search-results');
+                if (results) results.classList.add('hidden');
             }
         });
     }
@@ -303,10 +380,49 @@ class TaskModal {
         editor.focus();
 
         if (cmd === 'createLink') {
-            const url = prompt('Enter URL:');
+            const url = prompt('Ingresa la URL:');
             if (url) document.execCommand(cmd, false, url);
         } else {
             document.execCommand(cmd, false, null);
+        }
+    }
+
+    /**
+     * Format block (headings, paragraph)
+     */
+    formatBlock(tag) {
+        const editor = this.modal.querySelector('#cu-editor-visual');
+        editor.focus();
+        // formatBlock requiere el tag con brackets para Firefox
+        document.execCommand('formatBlock', false, '<' + tag + '>');
+    }
+
+    /**
+     * Insert special elements (code, quote, checklist)
+     * Si hay texto seleccionado, lo envuelve; si no, inserta ejemplo
+     */
+    insertElement(type) {
+        const editor = this.modal.querySelector('#cu-editor-visual');
+        editor.focus();
+
+        // Obtener texto seleccionado
+        const selection = window.getSelection();
+        const selectedText = selection.toString().trim();
+
+        let html = '';
+        switch (type) {
+            case 'code':
+                const codeContent = selectedText || '// Tu código aquí';
+                html = '<pre style="background:#1e1e1e;color:#d4d4d4;padding:12px;border-radius:6px;font-family:monospace;overflow-x:auto;"><code>' + this.escapeHtml(codeContent) + '</code></pre><br>';
+                break;
+            case 'quote':
+                const quoteContent = selectedText || 'Tu cita aquí';
+                html = '<blockquote style="border-left:4px solid #7B68EE;padding-left:16px;margin:8px 0;color:#555;font-style:italic;">' + quoteContent + '</blockquote><br>';
+                break;
+        }
+
+        if (html) {
+            document.execCommand('insertHTML', false, html);
         }
     }
 
@@ -373,6 +489,28 @@ class TaskModal {
         // Remove all scripts, styles, images first
         temp.querySelectorAll('script, style, img, svg, canvas, video, audio, iframe').forEach(el => el.remove());
 
+        // Process code blocks FIRST (before other processing removes structure)
+        temp.querySelectorAll('pre').forEach(pre => {
+            const code = pre.querySelector('code');
+            const text = code ? code.textContent : pre.textContent;
+            pre.replaceWith('\n```\n' + text.trim() + '\n```\n');
+        });
+
+        // Process blockquotes (citas) 
+        temp.querySelectorAll('blockquote').forEach(bq => {
+            const text = bq.textContent.trim();
+            const lines = text.split('\n').map(line => '> ' + line.trim()).join('\n');
+            bq.replaceWith(lines + '\n');
+        });
+
+        // Process headings
+        temp.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(h => {
+            const level = parseInt(h.tagName.charAt(1));
+            const prefix = '#'.repeat(level) + ' ';
+            const text = h.textContent.trim();
+            if (text) h.replaceWith('\n' + prefix + text + '\n');
+        });
+
         // Process links before removing tags
         temp.querySelectorAll('a').forEach(a => {
             const href = a.getAttribute('href');
@@ -405,10 +543,30 @@ class TaskModal {
             if (text) el.replaceWith(`\`${text}\``);
         });
 
-        // Process lists
-        temp.querySelectorAll('li').forEach(el => {
-            const text = el.textContent.trim();
-            if (text) el.replaceWith(`- ${text}\n`);
+        // Process ordered lists (numeradas)
+        temp.querySelectorAll('ol').forEach(ol => {
+            let index = 1;
+            ol.querySelectorAll(':scope > li').forEach(li => {
+                const text = li.textContent.trim();
+                if (text) {
+                    li.replaceWith(index + '. ' + text + '\n');
+                    index++;
+                }
+            });
+        });
+
+        // Process unordered lists (viñetas y checklists)
+        temp.querySelectorAll('ul li').forEach(li => {
+            let text = li.textContent.trim();
+            // Si tiene emoji de checkbox, convertir a formato markdown
+            if (text.startsWith('☐')) {
+                text = '- [ ] ' + text.substring(1).trim();
+            } else if (text.startsWith('☑') || text.startsWith('✓')) {
+                text = '- [x] ' + text.substring(1).trim();
+            } else {
+                text = '- ' + text;
+            }
+            li.replaceWith(text + '\n');
         });
 
         // Get text content and clean up

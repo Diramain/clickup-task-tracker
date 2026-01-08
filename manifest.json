@@ -1,8 +1,8 @@
 {
     "manifest_version": 2,
     "name": "Gmail to ClickUp Task Tracker",
-    "version": "1.0.0",
-    "description": "Create ClickUp tasks from Gmail emails - Secure OAuth authentication",
+    "version": "2.0.0",
+    "description": "Create ClickUp tasks from Gmail emails - InboxSDK powered",
     "permissions": [
         "storage",
         "activeTab",
@@ -44,7 +44,8 @@
     },
     "web_accessible_resources": [
         "assets/*",
-        "popup/*"
+        "popup/*",
+        "dist/*"
     ],
     "icons": {
         "16": "assets/icons/icon-16.png",
